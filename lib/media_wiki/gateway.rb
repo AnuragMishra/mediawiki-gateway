@@ -37,7 +37,7 @@ module MediaWiki
       @headers = { "User-Agent" => "MediaWiki::Gateway/#{MediaWiki::VERSION}" }
       @cookies = {}
     end
-    
+
     attr_reader :base_url, :cookies
     
     # Login to MediaWiki
@@ -66,6 +66,36 @@ module MediaWiki
         page.elements["revisions/rev"].text || ""
       end
     end
+    
+    # Fetch all revisions of a page.
+    #
+    # [page_title] Page title to fetch
+    #
+    # Returns an array of all revisions to this page. Each array item is
+    # a hash containing the author's name and the timestamp of the revision.
+    def last_revision(page_title)
+      form_data = {'action' => 'query', 'prop' => 'revisions', 'rvprop' => 'timestamp|user', 'titles' => page_title} 
+      page = make_api_request(form_data).first.elements["query/pages/page"]
+      if valid_page? page
+        revision = page.elements["revisions/rev"]
+        {'user' => revision.attributes['user'], 'timestamp' => revision.attributes['timestamp']}
+      end
+    end
+    
+    # Fetch MediaWiki page in MediaWiki format.  Does not follow redirects.
+    #
+    # [page_title] Page title to fetch
+    #
+    # Returns content of page as string, nil if the page does not exist.
+    def images(page_title)
+      form_data = {'action' => 'query', 'prop' => 'images', 'titles' => page_title}
+      page = make_api_request(form_data).first.elements["query/pages/page"]
+      if valid_page? page
+        page.get_elements('images/im').map { |image|
+          image.attributes['title']
+        }
+      end
+    end
 
     # Fetch latest revision ID of a MediaWiki page.  Does not follow redirects.
     #
@@ -76,6 +106,7 @@ module MediaWiki
       form_data = {'action' => 'query', 'prop' => 'revisions', 'rvprop' => 'ids', 'rvlimit' => 1, 'titles' => page_title}
       page = make_api_request(form_data).first.elements["query/pages/page"]
       if valid_page? page
+        puts page.elements["revisions/rev"]
         page.elements["revisions/rev"].attributes["revid"]
       end
     end
@@ -381,7 +412,11 @@ module MediaWiki
       when Fixnum
         form_data['pageids'] = file_name_or_page_id
       else
-        form_data['titles'] = "File:#{file_name_or_page_id}"
+        title = file_name_or_page_id
+        unless file_name_or_page_id.start_with?('File:') || file_name_or_page_id.start_with?('Image:')
+          title = "File:#{file_name_or_page_id}"
+        end
+        form_data['titles'] = title
       end
 
       xml, dummy = make_api_request(form_data)
