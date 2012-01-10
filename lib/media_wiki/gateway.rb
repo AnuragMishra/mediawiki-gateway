@@ -398,8 +398,10 @@ module MediaWiki
     # Output:
     #   "timestamp" => "2009-10-31T12:59:11Z"
     #   "user" => "Valdas"
+    #   "url" => "http://example.com/path/to/Image.jpg"
     #
     def image_info(file_name_or_page_id, options={})
+      options['iiprop'] ||= (options['iiprop'] || []) | [ 'url', 'timestamp', 'user' ]
       options['iiprop'] = options['iiprop'].join('|') \
         if options['iiprop'].respond_to?(:join)
       form_data = options.merge(
